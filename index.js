@@ -1,40 +1,80 @@
 var chief = null;
 var root = null;
 
-/*
- {"type":"@P1@",
-  "rest":"INDI",
-  "children":
-  [
-  {"type":"NAME","rest":"Donald Moody /Malehorn/","children":[]},
-  {"type":"BIRT","rest":"","children":[{"type":"DATE","rest":"18 Nov 1930","children":[]}]},
-  {"type":"SEX","rest":"M","children":[]},
-  {"type":"FAMC","rest":"@F2@","children":[]},
-  {"type":"FAMS","rest":"@F1@","children":[]}
-  ]}
 
-  gedded["@P1@"][0] = chief
-  gedded["@P1@"][0].value == "INDI"
-  gedded["@P1@"][0]["NAME"][0].value == "Donald Moody /Malehorn/"
-  */
+/**
+ * Called on upload.
+ */
+function main(gedStr) {
+    root = toGed(gedStr);
+    var people = d3.select("#people-list");
+    for (indi in root) {
+        if (_.startsWith(indi, "@P")) {
+            people
+                .append("li")
+                .append("a")
+                .attr("href", "index.html#" + indi)
+                .text(root[indi][0].NAME[0].value);
+        }
+    }
+    window.onhashchange = function() {
+        if (window.location.hash === "") {
+            console.log(1);
+            d3.select("#people")
+                .style("display", "inline");
+            d3.select("#chart")
+                .style("display", "none");
+        } else {
+            console.log(2);
+            var indi = window.location.hash.substring(1);
+            if (!root[indi]) {
+                throw "bad hash: " + window.location.hash;
+            }
+            console.log(indi);
+            d3.select("#people")
+                .style("display", "none");
+            d3.select("#chart")
+                .style("display", "inline");
+            display(indi);
+        }
+    };
+}
 
-
-var openFile = function openFile(event) {
+function openFile(event) {
     var input = event.target;
-
     var reader = new FileReader();
     reader.onload = function() {
         var s = reader.result;
-        root = parseGed(s);
-        chief = root["@P1@"][0];
-        console.log(parents("@P1@"));
-        console.log(origin("@P1@"));
+        main(s);
     };
     reader.readAsText(input.files[0]);
-};
+}
 
 
-var parseGed = function ParseGed(s) {
+/**
+ * Phase 1:
+ *
+ * {rest: "@P1@",
+ *  type: "INDI",
+ *  children: [{
+ *    rest: "Donald Moody /Malehorn/",
+ *    type: "NAME",
+ *    children: []
+ *   }, {
+ *    rest: "",
+ *    type: "BIRT",
+ *    children: [{
+ *      rest: "18 Nov 1930",
+ *      type: "DATE",
+ *      children: []
+ *    }]
+ *   }]
+ *  }
+ *
+ *
+ * The most accurate representation of a GEDCOM file, parsed in as a tree.
+ */
+function toGed(s) {
     var lines = s.trim().split("\n");
     var objs = lines.map(function(line) {
         var words = line.trim().split(/\s/);
@@ -78,8 +118,29 @@ var parseGed = function ParseGed(s) {
 
 
 
-};
+}
 
+/**
+ * Phase 2:
+ *
+ * {"type":"@P1@",
+ * "rest":"INDI",
+ * "children":
+ *  [
+ * {"type":"NAME","rest":"Donald Moody /Malehorn/","children":[]},
+ * {"type":"BIRT","rest":"","children":[{"type":"DATE","rest":"18 Nov 1930","children":[]}]},
+ * {"type":"SEX","rest":"M","children":[]},
+ * {"type":"FAMC","rest":"@F2@","children":[]},
+ * {"type":"FAMS","rest":"@F1@","children":[]}
+ * ]}
+ *
+ * gedded["@P1@"][0] = chief
+ * gedded["@P1@"][0].value == "INDI"
+ * gedded["@P1@"][0]["NAME"][0].value == "Donald Moody /Malehorn/"
+ *
+ * A convenience type of phase 1.
+ * I often want to lookup up "NAME" without iterating over all child nodes.
+ */
 function toLookup(obj) {
     var lookup = {};
     lookup.value = obj.rest;
@@ -119,11 +180,6 @@ function parents(indi) {
     };
 }
 
-/*
-  country("Dover, York, Pennsylvania, United States") => "American"
-  country("Neckargemünd, Rhein-Neckar-Kreis, Baden-Wuerttemberg, Germany")
-    => "German"
-  */
 
 var countries = {
     "Netherlands": "Dutch",
@@ -242,6 +298,11 @@ var states = {
     "Wyoming": "Wyoming"
 };
 
+/**
+ * originStr("Dover, York, Pennsylvania, United States") => "American"
+ * originStr("Neckargemünd, Rhein-Neckar-Kreis, Baden-Wuerttemberg, Germany")
+ *   => "German"
+ */
 function originStr(place) {
     for (k in states) {
         if (_.includes(place, k)) {
@@ -256,12 +317,25 @@ function originStr(place) {
     return "unknown";
 }
 
+
+/**
+ * Base case: guess country based on BIRT, RESI, DEAT
+ *
+ * Born: ???
+ * Resided: ???
+ * Died: Frankfurt, Germany
+ *  => "Germany"
+ */
 function indiOrigin(indi) {
-    console.log(root[indi][0].NAME[0].value);
     obj = {};
     if (root[indi][0].BIRT && root[indi][0].BIRT[0].PLAC) {
+        console.log(root[indi][0].NAME[0].value);
         obj[originStr(root[indi][0].BIRT[0].PLAC[0].value)] = 1.0;
+    } else if (root[indi][0].RESI && root[indi][0].RESI[0].PLAC) {
+        console.log(root[indi][0].NAME[0].value);
+        obj[originStr(root[indi][0].RESI[0].PLAC[0].value)] = 1.0;
     } else if (root[indi][0].DEAT && root[indi][0].DEAT[0].PLAC) {
+        console.log(root[indi][0].NAME[0].value);
         obj[originStr(root[indi][0].DEAT[0].PLAC[0].value)] = 1.0;
     } else {
         obj["unknown"] = 1.0;
@@ -269,6 +343,10 @@ function indiOrigin(indi) {
     return obj;
 }
 
+
+/**
+ * "Who's your daddy?"
+ */
 function origin(indi) {
     var p = parents(indi);
     var fatherOrigin;
@@ -301,4 +379,120 @@ function origin(indi) {
         or[k] += motherOrigin[k] / 2.0;
     }
     return or;
+}
+
+/**
+ * e.g. appendHref(root, "@P1@", d3.select(...))
+ * [John Smith] -> #@P1@
+ */
+function appendHref(indi, elem) {
+    elem.append("a")
+        .attr("href", "index.html#" + indi)
+        .text(root[indi][0].NAME[0].value);
+}
+
+/**
+ * Display the indi in #chart:
+ *
+ *
+ *   Name: [John Smith]
+ *   Father: [Jack Smith]
+ *   Mother: [Mary Jones]
+ *   Children:
+ *     - [Joe Smith]
+ *     - [Jim Smith]
+ *
+ *                          ------+--------
+ *                     ----/      |        \----
+ *                  --/           |             \--
+ *                -/\             |                \-
+ *              -/   -\  British  |   German         \-
+ *             /       \          |                    \
+ *            /         -\        |                     \
+ *           /            \       |                   /--\
+ *          /              -\     |               /---    \
+ *         /                 -\   |          /----         \
+ *         |                   \  |      /---              |
+ *         |                    -\|  /---      Swiss       |
+ *         |                      \---                     |
+ *         \                          \-------             /
+ *          \                                 \-------    /
+ *           \    Pennsylvania                        \---
+ *            \                                         /
+ *             \                                       /
+ *              -\                                   /-
+ *                -\                               /-
+ *                  --\                         /--
+ *                     ----\               /----
+ *                          ---------------
+ *
+ */
+function display(indi) {
+
+    d3.select("#chart-name")
+        .text(root[indi][0].NAME[0].value);
+    var p = parents(indi);
+    if (p.father === null) {
+        d3.select("#chart-father").text("unknown");
+    } else {
+        appendHref(p.father, d3.select("#chart-father"));
+    }
+
+    var or = origin(indi);
+    var data = [];
+    for (k in or) {
+        data.push({
+            source: k,
+            percentage: or[k]
+        });
+    }
+    var color;
+    if (data.length <= 10) {
+        color = d3.scale.category10();
+    } else if (data.length <= 20) {
+        color = d3.scale.category20();
+    } else {
+        throw "Too many categories!" + JSON.stringify(data);
+    }
+
+    var width = 500;
+    var height = 500;
+    var radius = Math.min(width, height) / 2;
+    var arc = d3.svg.arc()
+        .outerRadius(radius - 10)
+        .innerRadius(0);
+    var pie = d3.layout.pie()
+        .sort(null)
+        .value(function(data) {
+            return data.percentage;
+        });
+    var svg = d3.select("#chart").append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .append("g")
+        .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+    console.log(svg);
+
+    var g = svg.selectAll(".arc")
+        .data(pie(data))
+        .enter()
+        .append("g")
+        .attr("class", "arc");
+
+    g.append("path")
+        .attr("d", arc)
+        .style("fill", function(d) {
+            return color(d.data.source);
+        });
+
+    g.append("text")
+        .attr("transform", function(d) {
+            return "translate(" + arc.centroid(d) + ")";
+        })
+        .attr("dy", ".35em")
+        .style("text-anchor", "middle")
+        .text(function(d) {
+            console.log(d.data.source);
+            return d.data.source;
+        });
 }

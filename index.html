@@ -1,10 +1,38 @@
 <html>
   <head>
+    <meta charset="UTF-8"/>
     <script type="text/javascript" src="lodash.js"></script>
-    <script type="text/javascript" src="ged.js"></script>
+    <script type="text/javascript" src="d3.js"></script>
     <script type="text/javascript" src="index.js"></script>
+	  <link rel="stylesheet" type="text/css" href="index.css">
   </head>
   <body>
     <input type='file' accept='*' onchange='openFile(event)'><br>
+    <div id="people">
+      <ul id="people-list">
+      </ul>
+    </div>
+    <div id="chart" visibility="none">
+      <div>
+        Name:
+        <span id="chart-name">
+        </span>
+      </div>
+      <div>
+      Father:
+        <span id="chart-father">
+        </span>
+      </div>
+      <div>
+        Mother:
+        <span id="chart-mother">
+        </span>
+      </div>
+      <div>
+        Children:
+      <ul id="chart-children">
+      </ul>
+      </div>
+    </div>
   </body>
 </html>
