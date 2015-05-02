@@ -6,26 +6,13 @@ var root = null;
  * Called on upload.
  */
 function main(gedStr) {
-    root = toGed(gedStr);
-    var people = d3.select("#people-list");
-    for (indi in root) {
-        if (_.startsWith(indi, "@P")) {
-            people
-                .append("li")
-                .append("a")
-                .attr("href", "index.html#" + indi)
-                .text(root[indi][0].NAME[0].value);
-        }
-    }
     window.onhashchange = function() {
         if (window.location.hash === "") {
-            console.log(1);
             d3.select("#people")
                 .style("display", "inline");
             d3.select("#chart")
                 .style("display", "none");
         } else {
-            console.log(2);
             var indi = window.location.hash.substring(1);
             if (!root[indi]) {
                 throw "bad hash: " + window.location.hash;
@@ -38,6 +25,18 @@ function main(gedStr) {
             display(indi);
         }
     };
+    root = toGed(gedStr);
+    var people = d3.select("#people-list").text("");
+    for (indi in root) {
+        if (_.startsWith(indi, "@P")) {
+            people
+                .append("li")
+                .append("a")
+                .attr("href", "index.html#" + indi)
+                .text(root[indi][0].NAME[0].value);
+        }
+    }
+    window.location.hash = "";
 }
 
 function openFile(event) {
@@ -159,19 +158,34 @@ function toLookup(obj) {
     return lookup;
 }
 
+function children(indi) {
+    for (fam in root) {
+        if (_.startsWith(fam, "@F") &&
+            ((root[fam][0].HUSB != null &&
+            root[fam][0].HUSB[0].value == indi) ||
+            (root[fam][0].WIFE != null
+            && root[fam][0].WIFE[0].value == indi))) {
+            var chil = root[fam][0].CHIL;
+            return chil == null ? [] : chil.map(function(obj) {
+                return obj.value;
+            });
+        }
+    }
+    return [];
+}
+
 function parents(indi) {
     for (id in root) {
-        if (_.startsWith(id, "@F")) {
-            if (_.includes(_.pluck(root[id][0].CHIL, "value"), indi)) {
-                return {
-                    father: (root[id][0].HUSB || {
-                            0: {}
-                        })[0].value || null,
-                    mother: (root[id][0].WIFE || {
-                            0: {}
-                        })[0].value || null
-                };
-            }
+        if (_.startsWith(id, "@F") &&
+            _.includes(_.pluck(root[id][0].CHIL, "value"), indi)) {
+            return {
+                father: (root[id][0].HUSB || {
+                        0: {}
+                    })[0].value || null,
+                mother: (root[id][0].WIFE || {
+                        0: {}
+                    })[0].value || null
+            };
         }
     }
     return {
@@ -382,8 +396,11 @@ function origin(indi) {
 }
 
 /**
- * e.g. appendHref(root, "@P1@", d3.select(...))
- * [John Smith] -> #@P1@
+ * e.g. appendHref("@P1@", d3.select(...))
+ * =>   [John Smith] -> #@P1@
+ *
+ * appendHref(null, d3.select(...))
+ * =>   unknown
  */
 function appendHref(indi, elem) {
     elem.append("a")
@@ -391,6 +408,11 @@ function appendHref(indi, elem) {
         .text(root[indi][0].NAME[0].value);
 }
 
+/**
+ * Global, so "Pennsylvania" => blue
+ * every time
+ */
+var color = d3.scale.category10();
 /**
  * Display the indi in #chart:
  *
@@ -432,11 +454,12 @@ function display(indi) {
     d3.select("#chart-name")
         .text(root[indi][0].NAME[0].value);
     var p = parents(indi);
-    if (p.father === null) {
-        d3.select("#chart-father").text("unknown");
-    } else {
-        appendHref(p.father, d3.select("#chart-father"));
-    }
+    appendHref(p.father, d3.select("#chart-father").text(""));
+    appendHref(p.mother, d3.select("#chart-mother").text(""));
+    d3.select("#chart-children").text("");
+    children(indi).forEach(function(childIndi) {
+        appendHref(childIndi, d3.select("#chart-children").append("li"));
+    });
 
     var or = origin(indi);
     var data = [];
@@ -445,14 +468,6 @@ function display(indi) {
             source: k,
             percentage: or[k]
         });
-    }
-    var color;
-    if (data.length <= 10) {
-        color = d3.scale.category10();
-    } else if (data.length <= 20) {
-        color = d3.scale.category20();
-    } else {
-        throw "Too many categories!" + JSON.stringify(data);
     }
 
     var width = 500;
@@ -466,6 +481,7 @@ function display(indi) {
         .value(function(data) {
             return data.percentage;
         });
+    d3.select("#chart > svg").remove();
     var svg = d3.select("#chart").append("svg")
         .attr("width", width)
         .attr("height", height)
