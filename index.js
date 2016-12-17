@@ -189,6 +189,7 @@ function parents(indi) {
 }
 
 
+// Yup, these are all the countries in the world
 var countries = {
     "Netherlands": "Dutch",
     "Germany": "German",
@@ -196,9 +197,18 @@ var countries = {
     "Whales": "British",
     "United States": "American",
     "USA": "American",
-    "Switzerland": "Swiss"
+    "Switzerland": "Swiss",
+    "France": "French",
+    "Belgium": "Belgian"
 };
 
+// obnoxious cases not handled:
+// "Phil'a Co." => Philadelphia Commonwealth
+// "Lived entire life and died on estate of Adam Wilt, Sr." => ???
+// "Carolina" => presumably there was only one??
+// "Weston" => presumably "Weston, MA"
+// "Toronto General Hospital, Toronto, ON" => Canada
+// "Prussia" => probably Germany? But maybe Poland
 var states = {
     "AL": "Alabama",
     "Alabama": "Alabama",
