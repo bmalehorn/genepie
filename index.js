@@ -17,7 +17,6 @@ function main(gedStr) {
             if (!root[indi]) {
                 throw "bad hash: " + window.location.hash;
             }
-            console.log(indi);
             d3.select("#people")
                 .style("display", "none");
             d3.select("#chart")
@@ -159,39 +158,34 @@ function toLookup(obj) {
 }
 
 function children(indi) {
-    for (fam in root) {
-        if (_.startsWith(fam, "@F") &&
-            ((root[fam][0].HUSB != null &&
-            root[fam][0].HUSB[0].value == indi) ||
-            (root[fam][0].WIFE != null
-            && root[fam][0].WIFE[0].value == indi))) {
-            var chil = root[fam][0].CHIL;
-            return chil == null ? [] : chil.map(function(obj) {
-                return obj.value;
-            });
-        }
+    if (root[indi][0].FAMS == null) {
+        return [];
+    } else {
+        var fam = root[indi][0].FAMS[0].value;
+        var chil = root[fam][0].CHIL;
+        return chil == null ? [] : chil.map(function(obj) {
+            return obj.value;
+        });
     }
-    return [];
 }
 
 function parents(indi) {
-    for (id in root) {
-        if (_.startsWith(id, "@F") &&
-            _.includes(_.pluck(root[id][0].CHIL, "value"), indi)) {
-            return {
-                father: (root[id][0].HUSB || {
-                        0: {}
-                    })[0].value || null,
-                mother: (root[id][0].WIFE || {
-                        0: {}
-                    })[0].value || null
-            };
-        }
+    if (root[indi][0].FAMC == null) {
+        return {
+            father: null,
+            mother: null
+        };
+    } else {
+        var fam = root[indi][0].FAMC[0].value;
+        return {
+            father: (root[fam][0].HUSB || {
+                0: {}
+            })[0].value || null,
+            mother: (root[fam][0].WIFE || {
+                0: {}
+            })[0].value || null
+        };
     }
-    return {
-        father: null,
-        mother: null
-    };
 }
 
 
@@ -343,13 +337,10 @@ function originStr(place) {
 function indiOrigin(indi) {
     obj = {};
     if (root[indi][0].BIRT && root[indi][0].BIRT[0].PLAC) {
-        console.log(root[indi][0].NAME[0].value);
         obj[originStr(root[indi][0].BIRT[0].PLAC[0].value)] = 1.0;
     } else if (root[indi][0].RESI && root[indi][0].RESI[0].PLAC) {
-        console.log(root[indi][0].NAME[0].value);
         obj[originStr(root[indi][0].RESI[0].PLAC[0].value)] = 1.0;
     } else if (root[indi][0].DEAT && root[indi][0].DEAT[0].PLAC) {
-        console.log(root[indi][0].NAME[0].value);
         obj[originStr(root[indi][0].DEAT[0].PLAC[0].value)] = 1.0;
     } else {
         obj["unknown"] = 1.0;
@@ -487,13 +478,15 @@ function display(indi) {
         .attr("height", height)
         .append("g")
         .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
-    console.log(svg);
 
     var g = svg.selectAll(".arc")
         .data(pie(data))
         .enter()
         .append("g")
-        .attr("class", "arc");
+        .attr("class", "arc")
+            .on("mouseover", function(x) {
+                console.log(x);
+            });
 
     g.append("path")
         .attr("d", arc)
@@ -508,7 +501,6 @@ function display(indi) {
         .attr("dy", ".35em")
         .style("text-anchor", "middle")
         .text(function(d) {
-            console.log(d.data.source);
             return d.data.source;
         });
 }
